@@ -11,7 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.example.avitointership.presentation.navigation.NavGraph
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.example.avitointership.presentation.navigation.MainApp
 import com.example.avitointership.presentation.screen.login.LoginScreen
 import com.example.avitointership.presentation.screen.register.RegisterScreen
 import com.example.avitointership.presentation.ui.theme.AvitoIntershipTheme
@@ -20,11 +21,12 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             AvitoIntershipTheme {
-                NavGraph()
+                MainApp()
             }
         }
     }

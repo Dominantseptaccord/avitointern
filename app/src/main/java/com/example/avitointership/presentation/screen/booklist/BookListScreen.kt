@@ -1,5 +1,8 @@
 package com.example.avitointership.presentation.screen.booklist
 
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,9 +13,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil3.compose.AsyncImage
 import com.example.avitointership.domain.entity.Book
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -20,45 +25,30 @@ import com.example.avitointership.domain.entity.Book
 fun BookListScreen(
     modifier: Modifier = Modifier,
     viewModel: BookListViewModel = hiltViewModel(),
-    onBookClick: (String) -> Unit,
-    onNavigateToUpload: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onBookClick: (String) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
-
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("My Books") }
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Books") },
-                    label = { Text("Books") },
-                    selected = true,
-                    onClick = {}
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.ArrowDropDown, contentDescription = "Upload") },
-                    label = { Text("Upload") },
-                    selected = false,
-                    onClick = onNavigateToUpload
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                    label = { Text("Profile") },
-                    selected = false,
-                    onClick = onNavigateToProfile
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        viewModel.processCommand(BookListCommand.LoadBooks)
+    }
+    Column(modifier = modifier.fillMaxSize()) {
+        CenterAlignedTopAppBar(
+            title = { Text("Мои книги") },
+            actions = {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Обновить книги",
+                    modifier = Modifier
+                        .padding(12.dp)
+                        .clickable {
+                            viewModel.processCommand(BookListCommand.LoadBooks)
+                        }
                 )
             }
-        }
-    ) { paddingValues ->
+        )
         Box(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+            modifier = Modifier.fillMaxSize()
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 SearchBar(
@@ -91,7 +81,7 @@ fun BookListScreen(
                                     color = MaterialTheme.colorScheme.error
                                 )
                                 Button(onClick = { viewModel.processCommand(BookListCommand.LoadBooks) }) {
-                                    Text("Retry")
+                                    Text("Заново")
                                 }
                             }
                         }
@@ -111,8 +101,8 @@ fun BookListScreen(
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                                 if (state.emptyMessage == "You do not have any books yet.") {
-                                    Button(onClick = onNavigateToUpload) {
-                                        Text("Upload Your First Book")
+                                    Button(onClick = {  }) {
+                                        Text("Загрузите свою первую книгу")
                                     }
                                 }
                             }
@@ -124,9 +114,11 @@ fun BookListScreen(
                             books = state.books,
                             onBookClick = onBookClick,
                             onDeleteClick = { book ->
+                                Toast.makeText(context, "Удаление книги...", Toast.LENGTH_SHORT).show()
                                 viewModel.processCommand(BookListCommand.DeleteBook(book))
                             },
                             onDownloadClick = { book ->
+                                Toast.makeText(context, "Загрузка книги...", Toast.LENGTH_SHORT).show()
                                 viewModel.processCommand(BookListCommand.DownloadBook(book))
                             }
                         )
@@ -137,6 +129,7 @@ fun BookListScreen(
     }
 }
 
+
 @Composable
 private fun SearchBar(
     query: String,
@@ -146,7 +139,7 @@ private fun SearchBar(
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
-        label = { Text("Search books...") },
+        label = { Text("Поиск книг…") },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
         modifier = modifier.fillMaxWidth(),
         singleLine = true
@@ -175,7 +168,8 @@ private fun BookList(
                     } else {
                         onDownloadClick(book)
                     }
-                }
+                },
+                isClickable = book.isDownloaded
             )
         }
     }
@@ -185,25 +179,59 @@ private fun BookList(
 private fun BookListItem(
     book: Book,
     onBookClick: () -> Unit,
-    onActionClick: () -> Unit
+    onActionClick: () -> Unit,
+    isClickable: Boolean
 ) {
     Card(
-        onClick = onBookClick,
-        modifier = Modifier.fillMaxWidth()
+        onClick = if (isClickable) {
+            { onBookClick() }
+        } else {
+            { }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = isClickable
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .padding(end = 16.dp)
+            ) {
+                if (book.imgUrl != null && book.imgUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = book.imgUrl,
+                        contentDescription = "Обложка книги",
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Book,
+                            contentDescription = "Нет обложки",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
             Column(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
                     text = book.title,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (!isClickable) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = book.author,
@@ -212,17 +240,25 @@ private fun BookListItem(
                 )
                 if (book.isDownloaded) {
                     Text(
-                        text = "Downloaded",
+                        text = "Скачана",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Text(
+                        text = "Доступна для скачивания",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
 
             IconButton(onClick = onActionClick) {
                 Icon(
-                    imageVector = if (book.isDownloaded) Icons.Default.Delete else Icons.Default.ArrowDropDown,
-                    contentDescription = if (book.isDownloaded) "Delete" else "Download"
+                    imageVector = if (book.isDownloaded) Icons.Default.Delete else Icons.Default.CloudDownload,
+                    contentDescription = if (book.isDownloaded) "Удалить" else "Скачать",
+                    tint = if (book.isDownloaded) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.primary
                 )
             }
         }

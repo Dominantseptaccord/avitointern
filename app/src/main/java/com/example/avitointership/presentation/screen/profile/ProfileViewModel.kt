@@ -8,6 +8,7 @@ import com.example.avitointership.domain.usecase.UserUseCase.LogoutUseCase
 import com.example.avitointership.domain.usecase.UserUseCase.UpdateUserPhotoUseCase
 import com.example.avitointership.domain.usecase.UserUseCase.UpdateUserNameUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -70,6 +71,7 @@ class ProfileViewModel @Inject constructor(
             try {
                 _state.value = ProfileState.Loading
                 updateUserPhotoUseCase(photoUri)
+                delay(500)
                 loadUser()
             } catch (e: Exception) {
                 _state.value = ProfileState.Error("Failed to update photo: ${e.message}")

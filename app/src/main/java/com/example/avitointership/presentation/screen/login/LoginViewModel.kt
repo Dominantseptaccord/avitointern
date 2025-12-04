@@ -1,12 +1,19 @@
 package com.example.avitointership.presentation.screen.login
 
+import android.content.Context
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.avitointership.domain.usecase.UserUseCase.GoogleAuthUseCase
 import com.example.avitointership.presentation.screen.login.LoginState.*
 
 import com.example.avitointership.domain.usecase.UserUseCase.LoginUserUseCase
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,12 +22,27 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val loginUserUseCase: LoginUserUseCase
+    private val loginUserUseCase: LoginUserUseCase,
+    private val googleAuthUseCase: GoogleAuthUseCase,
+    private val firebaseAuth: FirebaseAuth,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<LoginState>(LoginState.Idle())
     val state = _state.asStateFlow()
+    init {
+        firebaseAuth.currentUser?.let {
+            _state.value = Success
+        }
+    }
 
+    fun getGoogleSignInClient(webClientId: String): GoogleSignInClient {
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(webClientId)
+            .requestEmail()
+            .build()
+        return GoogleSignIn.getClient(context, gso)
+    }
     fun processCommand(command: LoginCommand) {
         when (command) {
             is LoginCommand.InputEmail -> {
@@ -62,10 +84,21 @@ class LoginViewModel @Inject constructor(
 
                 viewModelScope.launch {
                     try {
-                        loginUserUseCase(current.email, current.password) // suspend функция
+                        loginUserUseCase(current.email, current.password)
                         _state.value = Success
                     } catch (e: Exception) {
                         _state.value = Error(e.message ?: "Login Error!")
+                    }
+                }
+            }
+            is LoginCommand.GoogleSignIn -> {
+                viewModelScope.launch {
+                    _state.value = Loading
+                    try {
+                        googleAuthUseCase(command.idToken)
+                        _state.value = Success
+                    } catch (e: Exception) {
+                        _state.value = Error(e.message ?: "Google Sign In Error!")
                     }
                 }
             }
@@ -76,6 +109,7 @@ class LoginViewModel @Inject constructor(
 sealed interface LoginCommand {
     data class InputEmail(val email: String) : LoginCommand
     data class InputPassword(val password: String) : LoginCommand
+    data class GoogleSignIn(val idToken: String) : LoginCommand
     data object Submit : LoginCommand
 }
 

@@ -1,5 +1,7 @@
 package com.example.avitointership.presentation.screen.bookupload
 
+import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.avitointership.domain.entity.Book
@@ -11,8 +13,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.example.avitointership.presentation.screen.bookupload.BookUploadState.*
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.flow.update
 import java.util.UUID
-
 import javax.inject.Inject
 
 @HiltViewModel
@@ -22,72 +24,129 @@ class BookUploadViewModel @Inject constructor(
     private val uploadBookUseCase: UploadBookUseCase
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow<BookUploadState>(Idle)
+    private val _state = MutableStateFlow<BookUploadState>(Idle())
     val state = _state.asStateFlow()
-
-    private var selectedFileUri: String? = null
-    private var currentTitle = ""
-    private var currentAuthor = ""
 
     fun processCommand(command: BookUploadCommand) {
         when (command) {
             is BookUploadCommand.FileSelected -> {
-                _state.value = FileSelected(command.fileName)
+                viewModelScope.launch {
+                    _state.update {previousState ->
+                        if(previousState is Idle) {
+                            previousState.copy(
+                                selectedFileUri = command.fileUri,
+                                selectedFileName = command.fileName,
+                            )
+                        }
+                        else{
+                            previousState
+                        }
+                    }
+                }
             }
             is BookUploadCommand.InputTitle -> {
-                currentTitle = command.title
+                viewModelScope.launch {
+
+                    _state.update {previousState ->
+                        if(previousState is Idle) {
+                            previousState.copy(title = command.title)
+                        }
+                        else{
+                            previousState
+                        }
+                    }
+
+                }
             }
             is BookUploadCommand.InputAuthor -> {
-                currentAuthor = command.author
+                viewModelScope.launch {
+                    _state.update {previousState ->
+                        if(previousState is Idle) {
+                            previousState.copy(author = command.author)
+                        }
+                        else{
+                            previousState
+                        }
+                    }
+                }
             }
             BookUploadCommand.Upload -> {
-                if (validateForm()) {
-                    uploadBook()
+                viewModelScope.launch {
+                    if (validateForm()) {
+                        uploadBook()
+                    }
                 }
             }
             BookUploadCommand.Retry -> {
-                if (validateForm()) {
-                    uploadBook()
+                viewModelScope.launch {
+                    if (validateForm()) {
+                        uploadBook()
+                    }
                 }
             }
-            BookUploadCommand.ClearError -> {
-                _state.value = BookUploadState.Idle
+            BookUploadCommand.Reset -> {
+                viewModelScope.launch {
+                    _state.value = Idle()
+                }
+            }
+
+            is BookUploadCommand.CoverImageSelected -> {
+                viewModelScope.launch {
+                    _state.update { previousState ->
+                        if (previousState is Idle) {
+                            previousState.copy(
+                                selectedCoverUri = command.coverUri,
+                            )
+                        } else {
+                            previousState
+                        }
+                    }
+                }
             }
         }
     }
 
     private fun validateForm(): Boolean {
-        if (selectedFileUri == null) {
-            _state.value = Error("Select the book file")
-            return false
-        }
-        if (currentTitle.isBlank()) {
-            _state.value = Error("Enter the title of the book")
-            return false
-        }
-        if (currentAuthor.isBlank()) {
-            _state.value = Error("Enter the book's author")
-            return false
+        _state.update { previousState ->
+            if(previousState is Idle){
+                if (previousState.selectedFileUri == null){
+                    Error("Select the book file")
+                    return false
+                }
+                if (previousState.title.isBlank()) {
+                    Error("Enter the title of the book")
+                    return false
+                }
+                if (previousState.author.isBlank()) {
+                    Error("Enter the book's author")
+                    return false
+                }
+                return true
+            }
+            else{
+                return true
+            }
         }
 
-        val fileExtension = selectedFileUri?.substringAfterLast('.', "")
-        if (fileExtension !in listOf("txt", "epub", "pdf")) {
-            _state.value = Error("Only files are supported .txt, .epub, .pdf")
-            return false
-        }
+
 
         return true
     }
 
     private fun uploadBook() {
         viewModelScope.launch {
-            _state.value = BookUploadState.Uploading(0)
+
+            val current = _state.value
+            if (current !is Idle) return@launch
+
             try {
+                _state.value = Uploading(progress = 0)
+
                 val book = Book(
                     id = UUID.randomUUID().toString(),
                     userId = getCurrentUserId(),
-                    title = currentTitle,
-                    author = currentAuthor,
+                    title = current.title,
+                    author = current.author,
                     imgUrl = null,
                     fileUrl = "",
                     isDownloaded = false,
@@ -98,37 +157,47 @@ class BookUploadViewModel @Inject constructor(
                 )
 
                 uploadBookUseCase(
-                    fileUri = selectedFileUri!!,
+                    fileUri = current.selectedFileUri!!,
                     book = book,
+                    coverImageUri = current.selectedCoverUri,
                     onProgress = { progress ->
-                        _state.value = BookUploadState.Uploading(progress)
+                        _state.value = Uploading(progress)
                     }
                 )
 
+
                 _state.value = Success
+
             } catch (e: Exception) {
-                _state.value = Error(message = "Error Upload")
+                _state.value = Error("Loading error: ${e.message}")
             }
         }
     }
 
+
     private fun getCurrentUserId(): String {
-        return auth.currentUser!!.uid;
+        return auth.currentUser?.uid ?: throw IllegalStateException("The user is not authorized")
     }
 }
 
 sealed class BookUploadCommand {
     data class FileSelected(val fileUri: String, val fileName: String) : BookUploadCommand()
+    data class CoverImageSelected(val coverUri: String) : BookUploadCommand()
     data class InputTitle(val title: String) : BookUploadCommand()
     data class InputAuthor(val author: String) : BookUploadCommand()
     object Upload : BookUploadCommand()
     object Retry : BookUploadCommand()
-    object ClearError : BookUploadCommand()
+    object Reset : BookUploadCommand()
 }
 
 sealed class BookUploadState {
-    object Idle : BookUploadState()
-    data class FileSelected(val fileName: String) : BookUploadState()
+    data class Idle(
+        val title: String = "",
+        val author: String = "",
+        val selectedFileName: String? = null,
+        val selectedFileUri: String? = null,
+        val selectedCoverUri: String? = null
+    ) : BookUploadState()
     data class Uploading(val progress: Int) : BookUploadState()
     object Success : BookUploadState()
     data class Error(val message: String) : BookUploadState()

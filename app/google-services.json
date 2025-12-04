@@ -12,7 +12,20 @@
           "package_name": "com.example.avitointership"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1005972658158-ov3eav1reg7031fjvd52he35lououh4t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.avitointership",
+            "certificate_hash": "18266bfae9cd4ace600919a24295c2c73dbedc0c"
+          }
+        },
+        {
+          "client_id": "1005972658158-rvrgi4cksvo5g30bhh172uce7pse8a90.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBxaElMFO4y_0tNHeR2wEZJdtlnZ-5J3lA"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1005972658158-rvrgi4cksvo5g30bhh172uce7pse8a90.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

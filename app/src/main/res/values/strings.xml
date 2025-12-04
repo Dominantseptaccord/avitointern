@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">AvitoIntership</string>
+    <string name="books">Книги</string>
+    <string name="upload">Загрузить</string>
+    <string name="profile">Профиль</string>
+    <string name="default_web_client_id">1005972658158-ov3eav1reg7031fjvd52he35lououh4t.apps.googleusercontent.com</string>
 </resources>

@@ -2,4 +2,9 @@
 <resources>
 
     <style name="Theme.AvitoIntership" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.AvitoIntership.SplashScreen" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/white</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.AvitoIntership</item>
+    </style>
 </resources>
